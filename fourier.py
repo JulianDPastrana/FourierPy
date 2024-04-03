@@ -38,8 +38,8 @@ class FourierSeries:
         self.start = start
         self.stop = stop
         N = stop - start + 1
-        self.coeffs = np.empty(N)
-        self.bases = np.empty((N, len(self.t)))
+        self.coeffs = np.empty(N, dtype=complex)
+        self.bases = np.empty((N, len(self.t)), dtype=complex)
 
         for i, k in enumerate(range(start, stop + 1)):
             base = self.bases_generator(k, self.t)
@@ -56,36 +56,36 @@ class FourierSeries:
         """
         return np.dot(self.coeffs, self.bases)
 
-    def plot(self):
-        """
-        Plots the original signal, reconstructed signal, and Fourier coefficients.
-        """
-        plt.figure(figsize=(14, 7))
+    # def plot(self):
+    #     """
+    #     Plots the original signal, reconstructed signal, and Fourier coefficients.
+    #     """
+    #     plt.figure(figsize=(14, 7))
 
-        # Original and reconstructed signal
-        plt.subplot(1, 2, 1)
-        plt.plot(self.t, self.x, label="Original Signal")
-        plt.plot(
-            self.t,
-            self.reconstruct_signal(),
-            label="Reconstructed Signal",
-            linestyle="--",
-        )
-        plt.xlabel("Time")
-        plt.ylabel("Amplitude")
-        plt.legend()
-        plt.title("Fourier Series Reconstruction")
+    #     # Original and reconstructed signal
+    #     plt.subplot(1, 2, 1)
+    #     plt.plot(self.t, self.x, label="Original Signal")
+    #     plt.plot(
+    #         self.t,
+    #         self.reconstruct_signal(),
+    #         label="Reconstructed Signal",
+    #         linestyle="--",
+    #     )
+    #     plt.xlabel("Time")
+    #     plt.ylabel("Amplitude")
+    #     plt.legend()
+    #     plt.title("Fourier Series Reconstruction")
 
-        # Fourier coefficients
-        plt.subplot(1, 2, 2)
-        plt.stem(range(self.start, self.stop + 1), self.coeffs)
-        plt.xlabel("Basis Function Index")
-        plt.ylabel("Coefficient Magnitude")
-        plt.title("Fourier Coefficients")
+    #     # Fourier coefficients
+    #     plt.subplot(1, 2, 2)
+    #     plt.stem(range(self.start, self.stop + 1), self.coeffs)
+    #     plt.xlabel("Basis Function Index")
+    #     plt.ylabel("Coefficient Magnitude")
+    #     plt.title("Fourier Coefficients")
 
-        plt.tight_layout()
-        plt.savefig("./figure.png")
-        plt.close()
+    #     plt.tight_layout()
+    #     plt.savefig("./figure.png")
+    #     plt.close()
 
 
 class LegendrePoly:
@@ -117,6 +117,100 @@ class LegendrePoly:
         float: The energy of the polynomial.
         """
         return 2 / (2 * k + 1)
+    
+class WalshFunctions:
+    def __call__(self, k, t):
+        """
+        Generates the k-th Walsh function evaluated at points t using Gray codes to determine
+        the sequence of Rademacher functions to multiply together. This method constructs the
+        Walsh function by applying bitwise operations based on the Gray code of the order k
+        and multiplying Rademacher functions accordingly.
+
+        Parameters:
+        - k (int): The order of the Walsh function, determining which Walsh function to generate.
+        - t (np.ndarray): The points at which to evaluate the function, representing a continuous
+          time or sample points.
+
+        Returns:
+        np.ndarray: The evaluated Walsh function at points t, representing the function's value
+        at each point in t.
+        """
+        walsh = np.ones_like(t)
+        gcode = self._get_gray_codes(k)
+        for index, item in enumerate(gcode[::-1]):
+            l = int(item)
+            n = index + 1
+            walsh *= self._rademacher(t, n)**l
+
+        return walsh
+
+    def _get_gray_codes(self, n):
+        """
+        Converts an integer to its corresponding Gray code. The Gray code is a binary numeral system
+        where two successive values differ in only one bit, which is useful for minimizing errors in
+        digital communication and for generating Walsh functions.
+
+        Parameters:
+        - n (int): The integer to convert to Gray code.
+
+        Returns:
+        str: The Gray code representation of the integer n as a binary string.
+        """
+        assert n >= 0, "Invalid input: n must be non-negative."
+
+        n ^= (n >> 1)
+        gcode = bin(n)[2:]
+
+        return gcode
+    
+    def _rademacher(self, t, n):
+        """
+        Generates the n-th Rademacher function evaluated at points t. Rademacher functions are
+        a series of orthogonal functions that take values of +1 and -1. They are used in constructing
+        Walsh functions.
+
+        Parameters:
+        - t (np.ndarray): The points at which to evaluate the Rademacher function.
+        - n (int): The order of the Rademacher function, determining the function's frequency.
+
+        Returns:
+        np.ndarray: The evaluated n-th Rademacher function at points t.
+        """
+        assert n >= 0, "Invalid input: n must be non-negative."
+
+        if n == 0:
+            rademacher = np.ones_like(t)
+        else:
+            rademacher = np.sign(np.sin(2 ** n * np.pi * t))
+
+        return rademacher
+
+    def energy(self, k):
+        """
+        Calculates the energy of the k-th Walsh function. Given the orthogonal and normalized nature
+        of Walsh functions, the energy of each function is considered to be 1. This is consistent with
+        their application in signal processing where Walsh functions are used as a basis set for
+        representing signals.
+
+        Parameters:
+        - k (int): The order of the Walsh function, although it's not directly used in this method as
+          the energy of all Walsh functions is 1.
+
+        Returns:
+        float: The energy of the k-th Walsh function, which is always 1.
+        """
+        return 1
+    
+class ExpComplex:
+    def __init__(self, T0):
+        self.T0 = T0
+        
+    def __call__(self, k, t):
+        return np.exp(2j*k*np.pi*t/self.T0)
+    
+    def energy(self, k):
+        return self.T0
+        
 
 
 def square_wave(t):
@@ -133,23 +227,17 @@ def sawtooth_wave(t):
 
 def main():
     # Signal parameters definition
-    ti, tf, n_samples = -1, 1, 1000
+    ti, tf, n_samples = -.5, .5, 10000
     t = np.linspace(ti, tf, n_samples)
-    x = square_wave(t) # signal function
-    Ex = 2 # signal energy
-
+    x = np.cos(2*np.pi*t) # signal function
+    T0 = tf - ti
     # Fourier series analysis
-    poly = LegendrePoly()
-    fs = FourierSeries(x, poly, t)
-    start, stop = 0, 13
+    expcom = ExpComplex(T0)
+    fs = FourierSeries(x, expcom, t)
+    start, stop = -1, 1
     fs.compute_coeffs(start, stop)
-    fs.plot()
+    print(fs.coeffs)
 
-    # Cumulative energy calculation
-    Ep = sum(
-        fs.coeffs[i] ** 2 * poly.energy(k) for i, k in enumerate(range(start, stop + 1))
-    )
-    print(f"Cumulative Energy: {Ep:.3f} - {Ep/Ex:.2%}")
 
 
 if __name__ == "__main__":
