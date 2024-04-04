@@ -45,7 +45,7 @@ class FourierSeries:
             base = self.bases_generator(k, self.t)
             self.bases[i] = base
             base_energy = self.bases_generator.energy(k)
-            self.coeffs[i] = simpson(self.x * base, self.t) / base_energy
+            self.coeffs[i] = simpson(self.x * np.conj(base), self.t) / base_energy
 
     def reconstruct_signal(self):
         """
@@ -55,37 +55,6 @@ class FourierSeries:
         np.ndarray: The reconstructed signal.
         """
         return np.dot(self.coeffs, self.bases)
-
-    # def plot(self):
-    #     """
-    #     Plots the original signal, reconstructed signal, and Fourier coefficients.
-    #     """
-    #     plt.figure(figsize=(14, 7))
-
-    #     # Original and reconstructed signal
-    #     plt.subplot(1, 2, 1)
-    #     plt.plot(self.t, self.x, label="Original Signal")
-    #     plt.plot(
-    #         self.t,
-    #         self.reconstruct_signal(),
-    #         label="Reconstructed Signal",
-    #         linestyle="--",
-    #     )
-    #     plt.xlabel("Time")
-    #     plt.ylabel("Amplitude")
-    #     plt.legend()
-    #     plt.title("Fourier Series Reconstruction")
-
-    #     # Fourier coefficients
-    #     plt.subplot(1, 2, 2)
-    #     plt.stem(range(self.start, self.stop + 1), self.coeffs)
-    #     plt.xlabel("Basis Function Index")
-    #     plt.ylabel("Coefficient Magnitude")
-    #     plt.title("Fourier Coefficients")
-
-    #     plt.tight_layout()
-    #     plt.savefig("./figure.png")
-    #     plt.close()
 
 
 class LegendrePoly:
@@ -108,7 +77,7 @@ class LegendrePoly:
 
     def energy(self, k):
         """
-        Calculates the energy of the k-th Legendre polynomial.
+        Calculates the energy of the k-th Legendre polynomial.from fourier import FourierSeries, ExpComplex
 
         Parameters:
         - k (int): The order of the Legendre polynomial.
@@ -119,6 +88,9 @@ class LegendrePoly:
         return 2 / (2 * k + 1)
     
 class WalshFunctions:
+    def __init__(self, T0=1):
+        self.T0 = T0
+
     def __call__(self, k, t):
         """
         Generates the k-th Walsh function evaluated at points t using Gray codes to determine
@@ -181,7 +153,7 @@ class WalshFunctions:
         if n == 0:
             rademacher = np.ones_like(t)
         else:
-            rademacher = np.sign(np.sin(2 ** n * np.pi * t))
+            rademacher = np.sign(np.sin(2 ** n * np.pi * t / self.T0))
 
         return rademacher
 
@@ -199,7 +171,7 @@ class WalshFunctions:
         Returns:
         float: The energy of the k-th Walsh function, which is always 1.
         """
-        return 1
+        return self.T0
     
 class ExpComplex:
     def __init__(self, T0):
@@ -229,7 +201,7 @@ def main():
     # Signal parameters definition
     ti, tf, n_samples = -.5, .5, 10000
     t = np.linspace(ti, tf, n_samples)
-    x = np.cos(2*np.pi*t) # signal function
+    x = np.sin(2*np.pi*t) # signal function
     T0 = tf - ti
     # Fourier series analysis
     expcom = ExpComplex(T0)
